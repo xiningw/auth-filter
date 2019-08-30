@@ -54,6 +54,6 @@ embed-server
 /subsystem=logging/console-handler=CONSOLE:add(formatter="LB %d{HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n")
 /subsystem=logging/logger=org.jboss.as:add(level=INFO)
 /subsystem=logging/logger=org.wildfly.extension:add(level=INFO)
-/subsystem=logging/root-logger=ROOT:add(level=INFO,handlers=[CONSOLE])
+/subsystem=logging/root-logger=ROOT:add(level=ERROR,handlers=[CONSOLE])
 
 stop-embedded-server

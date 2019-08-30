@@ -1,0 +1,37 @@
+
+- name: clear existing server
+  file:
+    name: "{{ server_dir }}"
+    state: absent
+
+- name: create server directories
+  file:
+    name: "{{ server_dir }}/{{ item }}"
+    state: directory
+  loop:
+    - configuration
+    - data
+    - content
+
+- name: create config properies
+  copy:
+    src: "logging.properties"
+    dest: "{{ server_dir }}/configuration/"
+
+- name: create content
+  template:
+    src: index.html.j2
+    dest: "{{ server_dir }}/content/index.html"
+
+- name: create server configuration
+  shell:
+    cmd: |
+        {{ jboss_home }}/bin/jboss-cli.sh -Djboss.server.base.dir={{ server_dir }} << EOF
+        {{ lookup('template', 'create-member.cli.j2' ) }}
+        EOF
+  register: create_result
+  failed_when: "'\"outcome\" => \"failed\"' in create_result.stdout or 'WFLYPRT0053' in create_result.stdout or 'ELY05053' in create_result.stdout"
+
+- name: create output
+  debug: msg="{{ create_result.stdout_lines }}"
+  when: debug is defined

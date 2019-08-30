@@ -1,0 +1,8 @@
+
+- name: create members
+  include_tasks: create.yml
+  loop:
+    - 1
+    - 2
+  loop_control:
+    loop_var: server_number

@@ -1,0 +1,39 @@
+
+embed-server --empty-config --remove-existing
+
+
+/interface=public:add(inet-address=0.0.0.0)
+
+/socket-binding-group=standard-sockets:add(default-interface=public)
+/socket-binding-group=standard-sockets/socket-binding=http:add(port=8{{ server_number }}80)
+
+/extension=org.wildfly.extension.io:add
+/extension=org.wildfly.extension.undertow:add
+/extension=org.jboss.as.logging:add
+
+/subsystem=io:add
+/subsystem=io/worker=default:add
+/subsystem=io/buffer-pool=default:add
+
+batch
+/subsystem=undertow:add
+/subsystem=undertow/server=default-server:add
+/subsystem=undertow/server=default-server/host=default-host:add
+/subsystem=undertow/servlet-container=default:add
+/subsystem=undertow/buffer-cache=default:add
+run-batch
+
+stop-embedded-server
+embed-server
+
+/subsystem=undertow/server=default-server/http-listener=default:add(socket-binding=http,enable-http2=true)
+/subsystem=undertow/configuration=handler/file=sample:add(path=\${jboss.server.base.dir}/content)
+/subsystem=undertow/server=default-server/host=default-host/location=\/sample:add(handler=sample)
+
+/subsystem=logging:add
+/subsystem=logging/console-handler=CONSOLE:add(formatter="NODE {{ server_number }}  %d{HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n")
+/subsystem=logging/logger=org.jboss.as:add(level=INFO)
+/subsystem=logging/logger=org.wildfly.extension:add(level=INFO)
+/subsystem=logging/root-logger=ROOT:add(level=ERROR,handlers=[CONSOLE])
+
+stop-embedded-server

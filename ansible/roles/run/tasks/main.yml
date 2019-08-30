@@ -1,0 +1,31 @@
+
+- name: start all servers
+  shell: "{{ jboss_home }}/bin/standalone.sh -Djboss.server.base.dir={{ working_dir }}/server/{{ server }} &"
+  loop:
+    - loadbalancer
+    - member1
+    - member2
+  loop_control:
+    loop_var: server
+
+
+- name: test valid user
+  command: "curl -u proxy:123456 -iL localhost:8080/sample"
+  args:
+    warn: false
+  register: valid_user
+
+- name: show curl output
+  debug: "msg={{ valid_user.stdout_lines }}"
+
+- name: test invalid user
+  command: "curl -u proxy:12345 -iL localhost:8080/sample"
+  args:
+    warn: false
+  register: invalid_user
+
+- name: show curl output
+  debug: "msg={{ invalid_user.stdout_lines }}"
+
+- name: stop all servers (caution ..)
+  shell: "killall java"
