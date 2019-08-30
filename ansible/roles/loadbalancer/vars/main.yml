@@ -1,0 +1,2 @@
+server_dir: "{{ working_dir }}/server/loadbalancer"
+auth_module: authfilter
