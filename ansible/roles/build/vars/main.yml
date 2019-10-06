@@ -1,0 +1,2 @@
+jboss_base: "{{ jboss_home }}/modules/system/layers/base"
+classpath: "{{ jboss_base }}/org/wildfly/security/elytron-private/main/*:{{ jboss_base }}/io/undertow/core/main/*:{{ jboss_base }}/org/jboss/msc/main/*:{{ jboss_base }}/org/jboss/as/server/main/*"

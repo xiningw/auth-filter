@@ -1,5 +1,4 @@
 tmp/
-build/
 server/
 *.class
 target/

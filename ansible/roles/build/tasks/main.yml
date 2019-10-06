@@ -1,0 +1,16 @@
+
+- name: clear build directory
+  file:
+    path: "{{ working_dir }}/build"
+    state: absent
+
+- name: create build directory
+  file:
+    path: "{{ working_dir }}/build"
+    state: directory
+
+- name: compile
+  command: "javac -cp {{ classpath }} -sourcepath src/main/java/ {{ working_dir }}/src/main/java/de/ctrlaltdel/authfilter/AuthFilter.java -d {{ working_dir }}/build"
+
+- name: create jar
+  command: "jar -cf {{ working_dir }}/build/authfilter.jar -C {{ working_dir }}/build de/"
