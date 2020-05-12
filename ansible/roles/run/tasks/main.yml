@@ -27,5 +27,5 @@
 - name: show curl output
   debug: "msg={{ invalid_user.stdout_lines }}"
 
-- name: stop all servers (caution ..)
-  shell: "killall java"
+#- name: stop all servers (caution ..)
+#  shell: "killall java"

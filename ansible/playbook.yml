@@ -2,6 +2,6 @@
   roles:
     - build
     - loadbalancer
-    - member
-    - run
+#    - member
+#    - run
 

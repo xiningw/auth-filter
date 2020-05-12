@@ -9,8 +9,14 @@ import io.undertow.security.idm.IdentityManager;
 import io.undertow.security.idm.PasswordCredential;
 import io.undertow.security.impl.BasicAuthenticationMechanism;
 import io.undertow.security.impl.SecurityContextImpl;
+import io.undertow.server.ExchangeCompletionListener;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
+import io.undertow.server.handlers.proxy.LoadBalancingProxyClient;
+import io.undertow.server.handlers.proxy.ProxyConnection;
+import io.undertow.server.handlers.proxy.ProxyHandler;
+import io.undertow.util.AttachmentKey;
+import io.undertow.util.AttachmentList;
 import org.jboss.as.server.CurrentServiceContainer;
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.ServiceName;
@@ -19,20 +25,41 @@ import org.wildfly.security.auth.server.RealmIdentity;
 import org.wildfly.security.auth.server.SecurityDomain;
 import org.wildfly.security.evidence.PasswordGuessEvidence;
 
+import java.lang.reflect.Field;
 import java.security.Principal;
 import java.util.Collections;
 import java.util.Set;
+import java.util.logging.Logger;
 
+@SuppressWarnings("unchecked")
 public class AuthFilter implements HttpHandler  {
+
+    private final static Logger LOG = Logger.getLogger(AuthFilter.class.getName());
 
     private final IdentityManager identityManager;
     private final AuthenticationMechanism authenticationMechanism;
     private final HttpHandler next;
 
+    private static AttachmentKey<AttachmentList<LoadBalancingProxyClient.Host>> ATTEMPTED_HOSTS;
+    private static AttachmentKey<ProxyConnection> CONNECTION;
+
     public AuthFilter(HttpHandler next) {
         this.identityManager = new IdentityManagerImpl();
         this.authenticationMechanism = new BasicAuthenticationMechanism("proxy");
         this.next = new AuthenticationCallHandler(next);
+
+        try {
+            Field field = LoadBalancingProxyClient.class.getDeclaredField("ATTEMPTED_HOSTS");
+            field.setAccessible(true);
+            ATTEMPTED_HOSTS = (AttachmentKey<AttachmentList<LoadBalancingProxyClient.Host>>) field.get(null);
+
+            field = ProxyHandler.class.getDeclaredField("CONNECTION");
+            field.setAccessible(true);
+            CONNECTION = (AttachmentKey<ProxyConnection>) field.get(null);
+
+        } catch (Exception e) {
+            //
+        }
     }
 
     @Override
@@ -41,6 +68,43 @@ public class AuthFilter implements HttpHandler  {
         securityContext.setAuthenticationRequired();
         securityContext.addAuthenticationMechanism(authenticationMechanism);
         exchange.setSecurityContext(securityContext);
+        if(!exchange.isComplete()) {
+            final long start = System.currentTimeMillis();
+            exchange.addExchangeCompleteListener(new ExchangeCompletionListener() {
+                @Override
+                public void exchangeEvent(HttpServerExchange exchange, NextListener nextListener) {
+                    StringBuilder sb = new StringBuilder("duration: ").append(System.currentTimeMillis() - start);
+                    sb.append(";reql: ").append(exchange.getRequestContentLength());
+                    sb.append(";respl: ").append(exchange.getResponseContentLength()).append(';');
+                    exchange.getRequestHeaders().forEach(headerValue -> {
+                        String name = headerValue.getHeaderName().toString();
+                        if (!name.equalsIgnoreCase("Authorization")) {
+                            sb.append(headerValue.getHeaderName()).append(": ").append(headerValue.getFirst()).append(" | ");
+                        }
+                    });
+                    try {
+                        sb.append(";attempted: ");
+                        exchange.getAttachment(ATTEMPTED_HOSTS).forEach(host ->{
+                            sb.append(host.getUri()).append(" | ");
+                        });
+
+                    } catch (Exception ignore) {
+                        //
+                    }
+                    try {
+                        ProxyConnection proxyConnection = exchange.getAttachment(CONNECTION);
+                        if (proxyConnection != null) {
+                            sb.append(";proxy: ").append(proxyConnection.getConnection().getPeerAddress())
+                                    .append(proxyConnection.getTargetPath());
+                        }
+                    } catch (Exception ignore) {
+                        //
+                    }
+                    LOG.severe(sb.toString());
+                    nextListener.proceed();
+                }
+            });
+        }
         next.handleRequest(exchange);
     }
 
